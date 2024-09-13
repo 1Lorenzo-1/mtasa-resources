@@ -18,6 +18,7 @@ aPlayers = {}
 aBans = {}
 aLastSync = 0
 aResources = {}
+aCurrentResGroup = ""
 
 local serverPassword = 'None'
 local hasResourceSetting
@@ -192,6 +193,8 @@ y=y+B  aTab1.VehicleHealth	= guiCreateLabel ( 0.26, y, 0.25, 0.04, "Vehicle Heal
 						  guiGridListAddColumn( aTab2.ResourceList, "Full Name", 0.6 )
 						  guiGridListAddColumn( aTab2.ResourceList, "Author", 0.4 )
 						  guiGridListAddColumn( aTab2.ResourceList, "Version", 0.2 )
+						  guiGridListSetSortingEnabled ( aTab2.ResourceList, false )
+
 		aTab2.ResourceInclMaps	= guiCreateCheckBox ( 0.03, 0.91, 0.15, 0.04, "Include Maps", false, true, aTab2.Tab )
 		aTab2.ResourceRefresh	= guiCreateButton ( 0.20, 0.915, 0.18, 0.04, "Refresh list", true, aTab2.Tab, "listresources" )
 		aTab2.ResourceSettings	= guiCreateButton ( 0.40, 0.05, 0.20, 0.04, "Settings", true, aTab2.Tab )
@@ -549,17 +552,8 @@ function aClientSync ( type, table, data )
 	elseif ( type == "resources" ) then
 		local bInclMaps = guiCheckBoxGetSelected ( aTab2.ResourceInclMaps )
 		aResources = table
-		for id, resource in ipairs(table) do
-			if bInclMaps or resource["type"] ~= "map" then
-				local row = guiGridListAddRow ( aTab2.ResourceList )
-				guiGridListSetItemText ( aTab2.ResourceList, row, 1, resource["name"], false, false )
-				guiGridListSetItemText ( aTab2.ResourceList, row, 2, resource["numsettings"] > 0 and tostring(resource["numsettings"]) or "", false, false )
-				guiGridListSetItemText ( aTab2.ResourceList, row, 3, resource["state"], false, false )
-				guiGridListSetItemText ( aTab2.ResourceList, row, 4, resource["fullName"], false, false )
-				guiGridListSetItemText ( aTab2.ResourceList, row, 5, resource["author"], false, false )
-				guiGridListSetItemText ( aTab2.ResourceList, row, 6, resource["version"], false, false )
-			end
-		end
+		aCurrentResGroup = ""
+		appendResourcesList("", true)
 	elseif ( type == "loggedout" ) then
 		aAdminDestroy()
 	elseif ( type == "admins" ) then
@@ -913,6 +907,41 @@ function aClientGUIAccepted ( element )
 	end
 end
 
+function appendResourcesList(search, clear)
+	local bInclMaps = guiCheckBoxGetSelected ( aTab2.ResourceInclMaps )
+	local resourcesList = aResources["grouped"][aCurrentResGroup] or aResources["ungrouped"]
+
+	if (clear) then guiGridListClear ( aTab2.ResourceList)  end
+	if aCurrentResGroup=="" then 
+		for group, resources in pairs(aResources["grouped"]) do
+			local row = guiGridListAddRow ( aTab2.ResourceList )
+			if string.find(string.lower(group), (search or ""), 1, true) then
+				guiGridListSetItemText ( aTab2.ResourceList, row, 1, group, false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 2, #resources, false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 3, "Resources", false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 4, "Unknown", false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 5, "Unknown", false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 6, "Unknown", false, false )
+			end 
+		end 
+	end 
+
+	for id, resource in ipairs(resourcesList) do
+		if bInclMaps or resource["type"] ~= "map" then
+			local resName = resource["name"]
+			if string.find(string.lower(resName), (search or ""), 1, true) then
+				local row = guiGridListAddRow ( aTab2.ResourceList )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 1, resName, false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 2, resource["numsettings"] > 0 and tostring(resource["numsettings"]) or "", false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 3, resource["state"], false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 4, resource["fullName"], false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 5, resource["author"], false, false )
+				guiGridListSetItemText ( aTab2.ResourceList, row, 6, resource["version"], false, false )
+			end 
+		end
+	end
+end 
+
 function aClientGUIChanged ()
 	if ( source == aTab1.PlayerListSearch ) then
 		guiGridListClear ( aTab1.PlayerList )
@@ -930,35 +959,7 @@ function aClientGUIChanged ()
 		end
 	elseif ( source == aTab2.ResourceListSearch ) then
 		local bInclMaps = guiCheckBoxGetSelected ( aTab2.ResourceInclMaps )
-		guiGridListClear ( aTab2.ResourceList )
-		local text = string.lower(guiGetText(source))
-		if ( text == "" ) then
-			for id, resource in ipairs(aResources) do
-				if bInclMaps or resource["type"] ~= "map" then
-					local row = guiGridListAddRow ( aTab2.ResourceList )
-					guiGridListSetItemText ( aTab2.ResourceList, row, 1, resource["name"], false, false )
-					guiGridListSetItemText ( aTab2.ResourceList, row, 2, resource["numsettings"] > 0 and tostring(resource["numsettings"]) or "", false, false )
-					guiGridListSetItemText ( aTab2.ResourceList, row, 3, resource["state"], false, false )
-					guiGridListSetItemText ( aTab2.ResourceList, row, 4, resource["fullName"], false, false )
-					guiGridListSetItemText ( aTab2.ResourceList, row, 5, resource["author"], false, false )
-					guiGridListSetItemText ( aTab2.ResourceList, row, 6, resource["version"], false, false )
-				end
-			end
-		else
-			for id, resource in ipairs(aResources) do
-				if bInclMaps or resource["type"] ~= "map" then
-					if string.find(string.lower(resource.name), text, 1, true) then
-						local row = guiGridListAddRow ( aTab2.ResourceList )
-						guiGridListSetItemText ( aTab2.ResourceList, row, 1, resource["name"], false, false )
-						guiGridListSetItemText ( aTab2.ResourceList, row, 2, resource["numsettings"] > 0 and tostring(resource["numsettings"]) or "", false, false )
-						guiGridListSetItemText ( aTab2.ResourceList, row, 3, resource["state"], false, false )
-						guiGridListSetItemText ( aTab2.ResourceList, row, 4, resource["fullName"], false, false )
-						guiGridListSetItemText ( aTab2.ResourceList, row, 5, resource["author"], false, false )
-						guiGridListSetItemText ( aTab2.ResourceList, row, 6, resource["version"], false, false )
-					end
-				end
-			end
-		end
+		appendResourcesList(string.lower(guiGetText(source)), true)
 	end
 end
 
@@ -970,11 +971,24 @@ end
 
 function aClientDoubleClick ( button )
 	if ( source == aTab2.ResourceList ) then
-		if ( guiGridListGetSelectedItem ( aTab2.ResourceList ) ~= -1 ) then
-			if hasResourceSetting then
-				aManageSettings ( guiGridListGetItemText ( aTab2.ResourceList, guiGridListGetSelectedItem( aTab2.ResourceList ), 1 ) )
+		local groupsList = aResources["grouped"]
+		local resName = guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem( aTab2.ResourceList ), 1)
+
+		if resName=="..." then 
+			aCurrentResGroup = ""
+			appendResourcesList("", true)
+		elseif groupsList[resName] then 
+			aCurrentResGroup = resName
+			guiGridListClear ( aTab2.ResourceList)
+			guiGridListAddRow ( aTab2.ResourceList, "..." )
+			appendResourcesList()
+		else 
+			if ( guiGridListGetSelectedItem ( aTab2.ResourceList ) ~= -1 ) then
+				if hasResourceSetting then
+					aManageSettings ( guiGridListGetItemText ( aTab2.ResourceList, guiGridListGetSelectedItem( aTab2.ResourceList ), 1 ) )
+				end
 			end
-		end
+		end 
 	elseif ( source == aTab4.BansList ) then
 		if ( guiGridListGetSelectedItem ( aTab4.BansList ) == -1 ) then
 			aMessageBox ( "error", "No ban row selected!" )
@@ -1063,16 +1077,43 @@ function aClientClick ( button )
 			elseif ( source == aTab2.ResourceList ) then
 				guiSetVisible ( aTab2.ResourceFailture, false )
 				if ( guiGridListGetSelectedItem ( aTab2.ResourceList ) ~= -1 ) then
+					local groupsList = aResources["grouped"]
 					local resName = guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem( aTab2.ResourceList ), 1)
 					if resName then
 						triggerServerEvent("aAdmin", localPlayer, "resourcelist", resName)
 					end
-					guiSetText(aTab2.ResourceName, "Full Name: " .. guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem ( aTab2.ResourceList ), 4))
-					guiSetText(aTab2.ResourceAuthor, "Author: " .. guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem ( aTab2.ResourceList ), 5))
-					guiSetText(aTab2.ResourceVersion, "Version: " .. guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem ( aTab2.ResourceList ), 6))
-					if ( guiGridListGetItemText ( aTab2.ResourceList, guiGridListGetSelectedItem( aTab2.ResourceList ), 3 ) == "Failed to load" ) then
-						guiSetVisible ( aTab2.ResourceFailture, true )
-					end
+					if groupsList[resName] then 
+						local resourceGrouped = ""
+						local currentLine = ""
+
+						for _, v in pairs(groupsList[resName]) do
+							local word = v.name .. ", "
+							if #currentLine + #word > 42 then
+								resourceGrouped = resourceGrouped .. currentLine .. "\n"
+								currentLine = word 
+							else
+								currentLine = currentLine .. word
+							end
+						end
+
+						if #currentLine > 0 then
+							resourceGrouped = resourceGrouped .. currentLine
+						end
+
+						guiSetText(aTab2.ResourceName, "Resources List: " .. resourceGrouped)
+						guiSetText(aTab2.ResourceAuthor, "")
+						guiSetText(aTab2.ResourceVersion, "")
+
+						guiSetSize ( aTab2.ResourceName, 0.6, 0.60, true)
+					else 
+						guiSetSize ( aTab2.ResourceName, 0.6, 0.03, true)
+						guiSetText(aTab2.ResourceName, "Full Name: " .. guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem ( aTab2.ResourceList ), 4))
+						guiSetText(aTab2.ResourceAuthor, "Author: " .. guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem ( aTab2.ResourceList ), 5))
+						guiSetText(aTab2.ResourceVersion, "Version: " .. guiGridListGetItemText(aTab2.ResourceList, guiGridListGetSelectedItem ( aTab2.ResourceList ), 6))
+						if ( guiGridListGetItemText ( aTab2.ResourceList, guiGridListGetSelectedItem( aTab2.ResourceList ), 3 ) == "Failed to load" ) then
+							guiSetVisible ( aTab2.ResourceFailture, true )
+						end
+					end 
 				end
 			elseif ( source == aTab2.ManageACL ) then
 				aManageACL()
