@@ -64,38 +64,61 @@ function aSynchCoroutineFunc( type, data, typeOfTag, banSearchTag )
 		local resourceTable = getResources()
 		local tick = getTickCount()
 		local antiCorMessageSpam = 0
-		for id, resource in ipairs(resourceTable) do
-			local name = getResourceName ( resource )
-			local state = getResourceState ( resource )
-			local type2 = getResourceInfo ( resource, "type" )
-			local _,numsettings = aGetResourceSettings(name,true)
-			tableOut[id] = {}
-			tableOut[id]["name"] = name
-			tableOut[id]["numsettings"] = numsettings
-			tableOut[id]["state"] = state
-			tableOut[id]["type"] = type2
-			tableOut[id]["fullName"] = getResourceInfo(resource, "name") or "Unknown"
-			tableOut[id]["author"] = getResourceInfo(resource, "author") or "Unknown"
-			tableOut[id]["version"] = getResourceInfo(resource, "version") or "Unknown"
 
-			if ( getTickCount() > tick + 100 ) then
-				-- Execution exceeded 100ms so pause and resume in 100ms
+		local groupedResources = {}
+		local ungroupedResources = {}
+
+		for id, resource in ipairs(resourceTable) do
+			local name = getResourceName(resource)
+			local state = getResourceState(resource)
+			local type2 = getResourceInfo(resource, "type")
+			local organizationalPath = getResourceOrganizationalPath(resource)
+			local _, numsettings = aGetResourceSettings(name, true)
+
+			local resourceData = {
+				["name"] = name,
+				["numsettings"] = numsettings,
+				["state"] = state,
+				["type"] = type2,
+				["fullName"] = getResourceInfo(resource, "name") or "Unknown",
+				["author"] = getResourceInfo(resource, "author") or "Unknown",
+				["version"] = getResourceInfo(resource, "version") or "Unknown"
+			}
+
+			if organizationalPath and organizationalPath ~= "" then
+				if not groupedResources[organizationalPath] then
+					groupedResources[organizationalPath] = {}
+				end
+				table.insert(groupedResources[organizationalPath], resourceData)
+			else
+				table.insert(ungroupedResources, resourceData)
+			end
+
+
+			if getTickCount() > tick + 100 then
 				setTimer(function()
 					local status = coroutine.status(cor)
-					if (status == "suspended") then
+					if status == "suspended" then
 						coroutine.resume(cor)
-					elseif (status == "dead") then
+					elseif status == "dead" then
 						cor = nil
 					end
 				end, 100, 1)
-				if (antiCorMessageSpam == 0) then
+
+				if antiCorMessageSpam == 0 then
 					outputChatBox("Please wait, resource list still loading... Don't try refresh.", source, 255, 255, 0)
 				end
 				antiCorMessageSpam = antiCorMessageSpam + 1
 				coroutine.yield()
+
 				tick = getTickCount()
 			end
 		end
+
+		tableOut = {
+			["grouped"] = groupedResources,
+			["ungrouped"] = ungroupedResources
+		}
 	elseif ( type == "admins" ) then
 		for id, player in ipairs(getElementsByType("player")) do
 			if isElement(player) and aPlayers[player] then
